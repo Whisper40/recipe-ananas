@@ -1,0 +1,15 @@
+passwd
+vars
+ansible/group_vars/all.yml
+sftp
+docker-compose/*
+!docker-compose/default
+
+# Fichiers générés par Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+build/
+.idea/
+*.iml
