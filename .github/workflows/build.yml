@@ -33,7 +33,7 @@ jobs:
 
       - name: Clean generated Android artifacts
         run: |
-          rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          rm -rf android/app/src/main/java/io/flutter/plugins
           git clean -fdx || true
           flutter clean
 
