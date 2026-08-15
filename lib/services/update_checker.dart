@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_installer/app_installer.dart';
+import 'package:install_plugin/install_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -157,7 +157,7 @@ class UpdateChecker {
         return;
       }
 
-      await AppInstaller.installApk(apkPath);
+      await InstallPlugin.installApk(apkPath);
       if (!context.mounted) return;
       await _saveLastCheckedVersion(release.tagName);
       messenger?.showSnackBar(
