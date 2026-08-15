@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/recipe.dart';
 import '../services/recipe_repository.dart';
@@ -26,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   late List<Recipe> _recipes;
   late List<String> _categories;
   bool _isBusy = false;
+  String _appVersion = '...';
 
   @override
   void initState() {
@@ -35,6 +37,20 @@ class _HomePageState extends State<HomePage> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text);
     });
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersion = '${info.version}+${info.buildNumber}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _appVersion = 'version inconnue');
+    }
   }
 
   @override
@@ -430,6 +446,19 @@ class _HomePageState extends State<HomePage> {
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Nouvelle recette'),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Center(
+            child: Text(
+              'Version déployée : $_appVersion',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
