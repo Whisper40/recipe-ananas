@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          clean: true
+          fetch-depth: 0
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -31,10 +34,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Clean generated Android artifacts
+      - name: Reset workspace and remove stale generated Android files
+        shell: bash
         run: |
+          git reset --hard HEAD
+          git clean -ffdx
+          rm -rf .dart_tool .flutter-plugins .flutter-plugins-dependencies build
           rm -rf android/app/src/main/java/io/flutter/plugins
-          git clean -fdx || true
+          find android -path '*/GeneratedPluginRegistrant.java' -delete
           flutter clean
 
       - name: Get dependencies

@@ -14,3 +14,4 @@ build/
 .idea/
 *.iml
 android/**/GeneratedPluginRegistrant.java
+android/app/src/main/java/io/flutter/plugins/
