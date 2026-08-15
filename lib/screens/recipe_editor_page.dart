@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -67,7 +66,7 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
       );
-      if (result == null || result.isEmpty || !mounted) return;
+      if (result.isEmpty || !mounted) return;
       final picked = result.single;
       final bytes = await picked.readAsBytes();
       setState(() => _imageBase64 = base64Encode(bytes));
