@@ -259,16 +259,13 @@ class _HomePageState extends State<HomePage> {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json', 'rtk'],
-        withData: true,
       );
-      if (result == null ||
-          result.files.single.bytes == null &&
-              result.files.single.path == null) {
+      if (result.isEmpty) {
         return;
       }
 
-      final picked = result.files.single;
-      final bytes = picked.bytes ?? await File(picked.path!).readAsBytes();
+      final picked = result.single;
+      final bytes = await picked.readAsBytes();
       final importedBackup = picked.name.toLowerCase().endsWith('.rtk')
           ? widget.repository.parseRtkBackupData(bytes)
           : widget.repository.parseBackupData(utf8.decode(bytes));

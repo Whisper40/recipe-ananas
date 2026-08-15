@@ -66,11 +66,10 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
-        withData: true,
       );
-      if (result == null || !mounted) return;
-      final picked = result.files.single;
-      final bytes = picked.bytes ?? await File(picked.path!).readAsBytes();
+      if (result == null || result.isEmpty || !mounted) return;
+      final picked = result.single;
+      final bytes = await picked.readAsBytes();
       setState(() => _imageBase64 = base64Encode(bytes));
     } catch (error) {
       if (mounted) {

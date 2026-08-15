@@ -35,12 +35,12 @@ dependencies:
 
   archive: ^3.6.1
   cupertino_icons: ^1.0.8
-  file_picker: ^11.0.3
+  file_picker: ^12.0.0
   shared_preferences: ^2.5.3
   http: ^1.2.0
   path_provider: ^2.1.1
   permission_handler: ^11.3.0
-  package_info_plus: ^8.0.0
+  package_info_plus: ^10.0.0
   flutter_app_installer: ^2.0.0
 
 dev_dependencies:
