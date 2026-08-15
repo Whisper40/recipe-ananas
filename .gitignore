@@ -13,3 +13,4 @@ docker-compose/*
 build/
 .idea/
 *.iml
+android/**/GeneratedPluginRegistrant.java
