@@ -32,7 +32,10 @@ jobs:
           cache: true
 
       - name: Clean generated Android artifacts
-        run: git clean -fdx && flutter clean
+        run: |
+          rm -f android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+          git clean -fdx || true
+          flutter clean
 
       - name: Get dependencies
         run: flutter pub get
