@@ -88,13 +88,13 @@ class UpdateChecker {
   Future<bool> isUpdateAvailable(GitHubRelease release) async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final currentVersion = info.version;
+      final currentVersion = info.version.split('+').first;
       final currentBuild = int.tryParse(info.buildNumber) ?? 0;
 
-      final tag = release.tagName.replaceAll('v', '');
-      final parts = tag.split('+');
-      final githubVersion = parts[0];
-      final githubBuild = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+      final normalizedTag = release.tagName.trim().replaceFirst(RegExp(r'^v'), '');
+      final tagParts = normalizedTag.split('+');
+      final githubVersion = tagParts.first;
+      final githubBuild = tagParts.length > 1 ? int.tryParse(tagParts[1]) ?? 0 : 0;
 
       if (githubVersion != currentVersion) {
         return true;
