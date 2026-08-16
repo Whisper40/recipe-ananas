@@ -15,3 +15,6 @@ build/
 *.iml
 android/**/GeneratedPluginRegistrant.java
 android/app/src/main/java/io/flutter/plugins/
+# Fichiers sensibles de signature Android
+android/upload_keystore.jks
+android/key.properties
