@@ -44,19 +44,19 @@ jobs:
           find android -path '*/GeneratedPluginRegistrant.java' -delete
           flutter clean
 
-        - name: Restore keystore from secrets
-          shell: bash
-          run: |
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/upload_keystore.jks
-            chmod 600 android/upload_keystore.jks
+      - name: Restore keystore from secrets
+        shell: bash
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/upload_keystore.jks
+          chmod 600 android/upload_keystore.jks
 
-        - name: Create key.properties
-          shell: bash
-          run: |
-            echo "storeFile=upload_keystore.jks" > android/key.properties
-            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
-            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+      - name: Create key.properties
+        shell: bash
+        run: |
+          echo "storeFile=upload_keystore.jks" > android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
 
       - name: Get dependencies
         run: flutter pub get
