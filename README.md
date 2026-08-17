@@ -17,6 +17,7 @@ Application Flutter de gestion de recettes, en français, conçue pour Android 1
 - Export JSON manuel avec nom daté (`recettes_YYYYMMDD_HHmmss.json`) via le sélecteur Android, y compris vers Nextcloud.
 - Restauration d’un backup Recettes Ananas, d’un tableau `recipes_0.json` ou d’une archive `.rtk` MyRecipeBox, avec confirmation avant remplacement des données actuelles.
 - Affichage de la version déployée et vérification automatique des releases GitHub, avec téléchargement puis lancement de l’installation de l’APK.
+- Icône de l’application : [Pineapple](https://www.flaticon.com/free-icon/pineapple_5582711), créée par [andinur](https://www.flaticon.com/authors/andinur) (attribution Flaticon requise).
 
 ## Migrer une sauvegarde MyRecipeBox
 

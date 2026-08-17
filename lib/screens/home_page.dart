@@ -358,6 +358,11 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _isBusy ? null : () => _openEditor(),
+            tooltip: 'Ajouter une recette',
+            icon: const Icon(Icons.add_rounded),
+          ),
           if (_isBusy)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 18),
@@ -439,6 +444,20 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+                child: Center(
+                  child: Text(
+                    'Version déployée : $_appVersion',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -446,19 +465,6 @@ class _HomePageState extends State<HomePage> {
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Nouvelle recette'),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Center(
-            child: Text(
-              'Version déployée : $_appVersion',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
