@@ -1,21 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_app_installer/flutter_app_installer.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_app_installer/flutter_app_installer.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Modèle pour une release GitHub
+/// Modèle pour une release GitHub.
 class GitHubRelease {
-  final String tagName;
-  final String downloadUrl;
-  final String body;
-  final DateTime createdAt;
-
   GitHubRelease({
     required this.tagName,
     required this.downloadUrl,
@@ -23,22 +16,37 @@ class GitHubRelease {
     required this.createdAt,
   });
 
+  final String tagName;
+  final String downloadUrl;
+  final String body;
+  final DateTime createdAt;
+
   factory GitHubRelease.fromJson(Map<String, dynamic> json) {
+    final assets = json['assets'] is List<dynamic>
+        ? json['assets'] as List<dynamic>
+        : const <dynamic>[];
+    var downloadUrl = '';
+    for (final asset in assets) {
+      if (asset is! Map<String, dynamic>) continue;
+      final candidate = asset['browser_download_url'];
+      if (candidate is String && candidate.toLowerCase().endsWith('.apk')) {
+        downloadUrl = candidate;
+        break;
+      }
+    }
+
     return GitHubRelease(
-      tagName: json['tag_name'] as String,
-      downloadUrl: json['assets']?.isNotEmpty == true
-          ? (json['assets'][0]['browser_download_url'] as String?) ?? ''
-          : '',
+      tagName: json['tag_name'] as String? ?? '',
+      downloadUrl: downloadUrl,
       body: json['body'] as String? ?? '',
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }
 
-/// Service de vérification des mises à jour
+/// Service de vérification et d’installation des mises à jour.
 class UpdateChecker {
-  static const _storageKey = 'last_checked_version';
-
   final String owner;
   final String repo;
   final String? token;
@@ -52,80 +60,58 @@ class UpdateChecker {
   String get _apiUrl =>
       'https://api.github.com/repos/$owner/$repo/releases/latest';
 
-  /// Vérifie s'il existe une nouvelle version disponible
   Future<GitHubRelease?> checkForUpdate() async {
     try {
       final headers = <String, String>{
-        'Accept': 'application/vnd.github.v3+json',
+        'Accept': 'application/vnd.github+json',
       };
-
-      // Pour les repos privés, ajoute le token GitHub
       if (token != null && token!.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
 
       final response = await http.get(Uri.parse(_apiUrl), headers: headers);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return GitHubRelease.fromJson(data);
-      } else if (response.statusCode == 404) {
-        // Pas de release trouvée
-        return null;
-      } else {
+      if (response.statusCode == 404) return null;
+      if (response.statusCode != 200) {
         debugPrint(
-            'Erreur GitHub API: ${response.statusCode} - ${response.body}');
+          'Erreur GitHub API: ${response.statusCode} - ${response.body}',
+        );
         return null;
       }
-    } catch (e) {
-      debugPrint('Erreur vérification mise à jour: $e');
+
+      return GitHubRelease.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>,
+      );
+    } catch (error) {
+      debugPrint('Erreur vérification mise à jour: $error');
       return null;
     }
   }
 
-  /// Compare la version actuelle avec la version GitHub
-  /// Retourne true si une mise à jour est disponible
+  /// Retourne true uniquement si la release GitHub est réellement plus récente.
   Future<bool> isUpdateAvailable(GitHubRelease release) async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final currentVersion = info.version.split('+').first;
-      final currentBuild = int.tryParse(info.buildNumber) ?? 0;
-
-      final normalizedTag = release.tagName.trim().replaceFirst(RegExp(r'^v'), '');
-      final tagParts = normalizedTag.split('+');
-      final githubVersion = tagParts.first;
-      final githubBuild = tagParts.length > 1 ? int.tryParse(tagParts[1]) ?? 0 : 0;
-
-      if (githubVersion != currentVersion) {
-        return true;
-      }
-
-      if (githubBuild > currentBuild) {
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('Erreur comparaison version: $e');
+      final current = _AppVersion.parse(info.version, info.buildNumber);
+      final available = _AppVersion.parseTag(release.tagName);
+      return current != null &&
+          available != null &&
+          available.compareTo(current) > 0;
+    } catch (error) {
+      debugPrint('Erreur comparaison version: $error');
       return false;
     }
   }
 
-  /// Télécharge et installe la nouvelle version
   Future<void> downloadAndInstall(
     BuildContext context,
     GitHubRelease release, {
     required VoidCallback onInstallComplete,
   }) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final storageStatus = await Permission.storage.request();
-    final manageStatus = await Permission.manageExternalStorage.request();
-
-    if (!context.mounted) return;
-    if (!storageStatus.isGranted && !manageStatus.isGranted) {
+    if (release.downloadUrl.isEmpty) {
       messenger?.showSnackBar(
         const SnackBar(
-          content: Text('Permission de stockage requise pour installer l\'APK.'),
+          content: Text('Aucun APK n’est disponible dans cette release.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -133,48 +119,47 @@ class UpdateChecker {
     }
 
     try {
-      if (!context.mounted) return;
-      final confirmed = await showDialog<bool>(
+      final apkPath = await showDialog<String>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _DownloadDialog(url: release.downloadUrl),
+        builder: (_) => _DownloadDialog(
+          download: (onProgress) => _downloadApk(
+            release.downloadUrl,
+            onProgress: onProgress,
+          ),
+        ),
       );
+      if (!context.mounted || apkPath == null) return;
 
+      final installed = await FlutterAppInstaller().installApk(
+        filePath: apkPath,
+      );
       if (!context.mounted) return;
-      if (confirmed != true) {
-        return;
-      }
-
-      final apkPath = await _downloadApk(release.downloadUrl);
-      if (!context.mounted) return;
-      if (apkPath == null) {
+      if (!installed) {
         messenger?.showSnackBar(
           const SnackBar(
-            content: Text('Erreur lors du téléchargement de l\'APK.'),
+            content: Text(
+              'Android n’a pas lancé l’installation. Vérifiez l’autorisation « installer des applications inconnues ».',
+            ),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      final installer = FlutterAppInstaller();
-      await installer.installApk(filePath: apkPath);
-      if (!context.mounted) return;
-      await _saveLastCheckedVersion(release.tagName);
       messenger?.showSnackBar(
         const SnackBar(
-          content: Text('Installation lancée.'),
+          content: Text('Installation lancée. Confirmez-la dans Android.'),
           backgroundColor: Colors.green,
         ),
       );
-      await Future.delayed(const Duration(seconds: 2));
-      if (!context.mounted) return;
-      onInstallComplete();
-    } catch (e) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (context.mounted) onInstallComplete();
+    } catch (error) {
       if (context.mounted) {
         messenger?.showSnackBar(
           SnackBar(
-            content: Text('Erreur lors du téléchargement: $e'),
+            content: Text('Erreur lors de l’installation : $error'),
             backgroundColor: Colors.red,
           ),
         );
@@ -182,61 +167,94 @@ class UpdateChecker {
     }
   }
 
-  /// Télécharge l'APK et retourne le chemin local
-  Future<String?> _downloadApk(String url) async {
+  Future<String?> _downloadApk(
+    String url, {
+    required void Function(int received, int total) onProgress,
+  }) async {
+    final client = http.Client();
+    IOSink? sink;
     try {
-      final client = http.Client();
-      final request = http.Request('GET', Uri.parse(url));
-      final streamedResponse = await client.send(request);
+      final response = await client.send(http.Request('GET', Uri.parse(url)));
+      if (response.statusCode != 200) return null;
 
-      if (streamedResponse.statusCode != 200) {
-        client.close();
-        return null;
+      final directory = await getApplicationSupportDirectory();
+      final file = File('${directory.path}/recette-box-update.apk');
+      sink = file.openWrite();
+      final total = response.contentLength ?? -1;
+      var received = 0;
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress(received, total);
       }
-
-      final directory = await getApplicationDocumentsDirectory();
-      final apkPath = '${directory.path}/recette-box-update.apk';
-      final file = File(apkPath);
-
-      final bytes = <int>[];
-      await for (final chunk in streamedResponse.stream) {
-        bytes.addAll(chunk);
-      }
-
-      await file.writeAsBytes(bytes);
-      client.close();
-      return apkPath;
-    } catch (e) {
-      debugPrint('Erreur téléchargement APK: $e');
+      await sink.flush();
+      await sink.close();
+      sink = null;
+      return file.path;
+    } catch (error) {
+      debugPrint('Erreur téléchargement APK: $error');
       return null;
+    } finally {
+      await sink?.close();
+      client.close();
     }
   }
-
-  /// Sauvegarde la dernière version vérifiée
-  Future<void> _saveLastCheckedVersion(String version) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, version);
-    } catch (e) {
-      debugPrint('Erreur sauvegarde version: $e');
-    }
-  }
-
 }
 
-/// Dialog de progression du téléchargement
-class _DownloadDialog extends StatefulWidget {
-  final String url;
+class _AppVersion implements Comparable<_AppVersion> {
+  const _AppVersion(this.major, this.minor, this.patch, this.build);
 
-  const _DownloadDialog({required this.url});
+  final int major;
+  final int minor;
+  final int patch;
+  final int build;
+
+  static _AppVersion? parse(String version, String build) {
+    final match = RegExp(r'^(\d+)\.(\d+)\.(\d+)$').firstMatch(version.trim());
+    if (match == null) return null;
+    return _AppVersion(
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(3)!),
+      int.tryParse(build.trim()) ?? 0,
+    );
+  }
+
+  static _AppVersion? parseTag(String tag) {
+    final normalized = tag.trim().replaceFirst(RegExp(r'^v'), '');
+    final parts = normalized.split('+');
+    if (parts.length > 2) return null;
+    return parse(parts.first, parts.length == 2 ? parts[1] : '0');
+  }
+
+  @override
+  int compareTo(_AppVersion other) {
+    final versionComparison = _compareInts(major, other.major);
+    if (versionComparison != 0) return versionComparison;
+    final minorComparison = _compareInts(minor, other.minor);
+    if (minorComparison != 0) return minorComparison;
+    final patchComparison = _compareInts(patch, other.patch);
+    if (patchComparison != 0) return patchComparison;
+    return _compareInts(build, other.build);
+  }
+
+  static int _compareInts(int first, int second) =>
+      first == second ? 0 : (first < second ? -1 : 1);
+}
+
+class _DownloadDialog extends StatefulWidget {
+  const _DownloadDialog({required this.download});
+
+  final Future<String?> Function(void Function(int received, int total))
+      download;
 
   @override
   State<_DownloadDialog> createState() => _DownloadDialogState();
 }
 
 class _DownloadDialogState extends State<_DownloadDialog> {
-  double _progress = 0;
-  bool _isComplete = false;
+  double? _progress;
+  bool _finished = false;
 
   @override
   void initState() {
@@ -245,54 +263,20 @@ class _DownloadDialogState extends State<_DownloadDialog> {
   }
 
   Future<void> _download() async {
-    try {
-      final response = await http.get(Uri.parse(widget.url));
-      
-      if (response.statusCode == 200) {
-        int downloaded = 0;
-
-        // Utiliser http.StreamedResponse pour le suivi de progression
-        final client = http.Client();
-        final request = http.Request('GET', Uri.parse(widget.url));
-        final streamedResponse = await client.send(request);
-
-        if (streamedResponse.statusCode == 200) {
-          final contentLength = streamedResponse.contentLength ?? 1;
-          final bytes = <int>[];
-          
-          await for (final chunk in streamedResponse.stream) {
-            bytes.addAll(chunk);
-            downloaded += chunk.length;
-            
-            if (mounted) {
-              setState(() {
-                _progress = downloaded / contentLength;
-              });
-            }
-          }
-
-          if (mounted) {
-            setState(() {
-              _progress = 1.0;
-              _isComplete = true;
-            });
-            
-            // Fermer le dialog après un court délai
-            await Future.delayed(const Duration(seconds: 1));
-            if (mounted) {
-              Navigator.of(context).pop(1.0);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isComplete = true;
-        });
-        Navigator.of(context).pop(0.0);
-      }
+    final path = await widget.download((received, total) {
+      if (!mounted) return;
+      setState(() {
+        _progress = total > 0 ? received / total : null;
+      });
+    });
+    if (!mounted) return;
+    setState(() => _finished = true);
+    if (path == null) {
+      Navigator.of(context).pop();
+      return;
     }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (mounted) Navigator.of(context).pop(path);
   }
 
   @override
@@ -302,18 +286,21 @@ class _DownloadDialogState extends State<_DownloadDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Téléchargement de la nouvelle version...'),
+          const Text('Téléchargement de la nouvelle version…'),
           const SizedBox(height: 16),
           LinearProgressIndicator(value: _progress),
-          if (_isComplete) ...[
+          if (_finished) ...[
             const SizedBox(height: 8),
-            const Text('Téléchargement terminé!', style: TextStyle(color: Colors.green)),
+            const Text(
+              'Téléchargement terminé.',
+              style: TextStyle(color: Colors.green),
+            ),
           ],
         ],
       ),
       actions: [
         TextButton(
-          onPressed: _isComplete ? null : () => Navigator.pop(context),
+          onPressed: _finished ? null : () => Navigator.pop(context),
           child: const Text('Annuler'),
         ),
       ],

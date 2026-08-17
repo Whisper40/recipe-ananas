@@ -16,6 +16,7 @@ Application Flutter de gestion de recettes, en français, conçue pour Android 1
 - Sauvegarde locale persistante sur le téléphone.
 - Export JSON manuel avec nom daté (`recettes_YYYYMMDD_HHmmss.json`) via le sélecteur Android, y compris vers Nextcloud.
 - Restauration d’un backup Recettes Ananas, d’un tableau `recipes_0.json` ou d’une archive `.rtk` MyRecipeBox, avec confirmation avant remplacement des données actuelles.
+- Affichage de la version déployée et vérification automatique des releases GitHub, avec téléchargement puis lancement de l’installation de l’APK.
 
 ## Migrer une sauvegarde MyRecipeBox
 
@@ -54,6 +55,15 @@ Le script `build_apk.sh` désactive le proxy uniquement pour les commandes Flutt
 ```bash
 ./build_apk.sh
 ```
+
+Les APK release doivent toujours être signés avec le même keystore. La CI
+utilise les secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` et
+`KEY_PASSWORD` ; le keystore ne doit jamais être régénéré ou remplacé. Le
+package Android reste `com.recettebox.recette_box` et le `versionCode` doit
+augmenter à chaque publication. Sans cette continuité de signature, Android
+refuse une mise à jour avec un message de conflit de package ; une ancienne
+installation signée avec une clé différente doit alors être désinstallée une
+fois.
 
 Le script détecte automatiquement le SDK Android installé par Homebrew dans `/opt/homebrew/share/android-commandlinetools` ainsi que Java 17. Pour un autre emplacement, définir `ANDROID_HOME` et `JAVA_HOME` avant son exécution.
 
