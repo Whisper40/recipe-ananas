@@ -50,26 +50,35 @@ class UpdateChecker {
   final String owner;
   final String repo;
   final String? token;
+  final http.Client? client;
 
   UpdateChecker({
     required this.owner,
     required this.repo,
     this.token,
+    this.client,
   });
 
   String get _apiUrl =>
-      'https://api.github.com/repos/$owner/$repo/releases/latest';
+      'https://api.github.com/repos/$owner/$repo/releases?per_page=100';
 
   Future<GitHubRelease?> checkForUpdate() async {
+    final requestClient = client ?? http.Client();
     try {
       final headers = <String, String>{
         'Accept': 'application/vnd.github+json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'X-GitHub-Api-Version': '2022-11-28',
       };
       if (token != null && token!.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.get(Uri.parse(_apiUrl), headers: headers);
+      final response = await requestClient.get(
+        Uri.parse(_apiUrl),
+        headers: headers,
+      );
       if (response.statusCode == 404) return null;
       if (response.statusCode != 200) {
         debugPrint(
@@ -78,13 +87,42 @@ class UpdateChecker {
         return null;
       }
 
-      return GitHubRelease.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List<dynamic>) {
+        debugPrint('Réponse GitHub invalide: une liste était attendue.');
+        return null;
+      }
+
+      final releases = decoded
+          .whereType<Map<String, dynamic>>()
+          .where((json) => json['draft'] != true && json['prerelease'] != true)
+          .map(GitHubRelease.fromJson)
+          .where((release) => release.downloadUrl.isNotEmpty)
+          .toList();
+
+      return _selectHighestVersion(releases);
     } catch (error) {
       debugPrint('Erreur vérification mise à jour: $error');
       return null;
+    } finally {
+      if (client == null) requestClient.close();
     }
+  }
+
+  GitHubRelease? _selectHighestVersion(List<GitHubRelease> releases) {
+    GitHubRelease? selected;
+    _AppVersion? selectedVersion;
+
+    for (final release in releases) {
+      final version = _AppVersion.parseTag(release.tagName);
+      if (version == null) continue;
+      if (selectedVersion == null || version.compareTo(selectedVersion) > 0) {
+        selected = release;
+        selectedVersion = version;
+      }
+    }
+
+    return selected;
   }
 
   /// Retourne true uniquement si la release GitHub est réellement plus récente.
