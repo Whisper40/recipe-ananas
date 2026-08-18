@@ -15,22 +15,19 @@ void main() {
         return http.Response(
           jsonEncode([
             {
-              'tag_name': 'v1.0.3+11',
+              'tag_name': 'v1.0.4+1',
               'draft': false,
               'prerelease': false,
               'assets': [
-                {
-                  'browser_download_url':
-                      'https://example.com/app-1.0.3+11.apk',
-                },
+                {'browser_download_url': 'https://example.com/app-1.0.4+1.apk'},
               ],
             },
             {
-              'tag_name': 'v1.0.4+0',
+              'tag_name': 'v1.0.4+2',
               'draft': false,
               'prerelease': false,
               'assets': [
-                {'browser_download_url': 'https://example.com/app-1.0.4+0.apk'},
+                {'browser_download_url': 'https://example.com/app-1.0.4+2.apk'},
               ],
             },
             {
@@ -54,7 +51,11 @@ void main() {
 
       expect(requestedUri.path, '/repos/Whisper40/recipe-ananas/releases');
       expect(requestedUri.queryParameters['per_page'], '100');
-      expect(release?.tagName, 'v1.0.4+0');
+      expect(
+        int.tryParse(requestedUri.queryParameters['cache_bust'] ?? ''),
+        isNotNull,
+      );
+      expect(release?.tagName, 'v1.0.4+2');
     },
   );
 }

@@ -39,7 +39,8 @@ class GitHubRelease {
       tagName: json['tag_name'] as String? ?? '',
       downloadUrl: downloadUrl,
       body: json['body'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
@@ -59,8 +60,15 @@ class UpdateChecker {
     this.client,
   });
 
-  String get _apiUrl =>
-      'https://api.github.com/repos/$owner/$repo/releases?per_page=100';
+  Uri get _apiUri => Uri.https(
+    'api.github.com',
+    '/repos/$owner/$repo/releases',
+    <String, String>{
+      'per_page': '100',
+      // GitHub/CDN peut conserver une réponse de la liste des releases.
+      'cache_bust': DateTime.now().millisecondsSinceEpoch.toString(),
+    },
+  );
 
   Future<GitHubRelease?> checkForUpdate() async {
     final requestClient = client ?? http.Client();
@@ -75,10 +83,7 @@ class UpdateChecker {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await requestClient.get(
-        Uri.parse(_apiUrl),
-        headers: headers,
-      );
+      final response = await requestClient.get(_apiUri, headers: headers);
       if (response.statusCode == 404) return null;
       if (response.statusCode != 200) {
         debugPrint(
@@ -161,10 +166,8 @@ class UpdateChecker {
         context: context,
         barrierDismissible: false,
         builder: (_) => _DownloadDialog(
-          download: (onProgress) => _downloadApk(
-            release.downloadUrl,
-            onProgress: onProgress,
-          ),
+          download: (onProgress) =>
+              _downloadApk(release.downloadUrl, onProgress: onProgress),
         ),
       );
       if (!context.mounted || apkPath == null) return;
@@ -284,7 +287,7 @@ class _DownloadDialog extends StatefulWidget {
   const _DownloadDialog({required this.download});
 
   final Future<String?> Function(void Function(int received, int total))
-      download;
+  download;
 
   @override
   State<_DownloadDialog> createState() => _DownloadDialogState();
