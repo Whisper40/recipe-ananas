@@ -65,6 +65,17 @@ class UpdateCheckResult {
   final bool isUpdateAvailable;
 }
 
+/// Convertit le versionCode Android encodé en numéro de build Flutter logique.
+/// Les anciennes APK utilisaient directement le build (par exemple 9).
+String logicalBuildNumber(PackageInfo info) {
+  final versionCode = int.tryParse(info.buildNumber);
+  if (versionCode == null || versionCode < 10_000) return info.buildNumber;
+  return (versionCode % 100).toString();
+}
+
+String formatPackageVersion(PackageInfo info) =>
+    '${info.version}+${logicalBuildNumber(info)}';
+
 /// Service de vérification et d’installation des mises à jour.
 class UpdateChecker {
   final String owner;
@@ -112,7 +123,7 @@ class UpdateChecker {
         debugPrint('Version installée indisponible: $error');
       }
       if (info != null) {
-        installedVersion = '${info.version}+${info.buildNumber}';
+        installedVersion = formatPackageVersion(info);
       }
       final headers = <String, String>{
         'Accept': 'application/vnd.github+json',
@@ -181,7 +192,7 @@ class UpdateChecker {
 
       final current = info == null
           ? null
-          : _AppVersion.parse(info.version, info.buildNumber);
+          : _AppVersion.parse(info.version, logicalBuildNumber(info));
       final available = _AppVersion.parseTag(release.tagName);
       final isAvailable =
           current != null &&
@@ -230,7 +241,7 @@ class UpdateChecker {
   Future<bool> isUpdateAvailable(GitHubRelease release) async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final current = _AppVersion.parse(info.version, info.buildNumber);
+      final current = _AppVersion.parse(info.version, logicalBuildNumber(info));
       final available = _AppVersion.parseTag(release.tagName);
       return current != null &&
           available != null &&

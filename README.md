@@ -7,6 +7,10 @@ il est calculé à partir de `major.minor.patch+build` : le changement de `patch
 ou de `build` produit donc toujours un code supérieur. Par exemple,
 `1.0.5+2` génère `1000502` et `1.0.6+2` génère `1000602`.
 
+Le numéro de build est lu directement dans `pubspec.yaml`, car Flutter remplace
+un build `+0` par `1` dans `local.properties` pour respecter la contrainte
+Android d’un `versionCode` strictement positif.
+
 Les quatre composants doivent rester entre `0` et `99`.
 
 Application Flutter de gestion de recettes, en français, conçue pour Android 15 et supérieur.

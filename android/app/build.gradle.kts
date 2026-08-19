@@ -39,6 +39,12 @@ fun androidVersionCode(versionName: String, buildNumber: String): Int {
     return major * 1_000_000 + minor * 10_000 + patch * 100 + build
 }
 
+val pubspecVersion = rootProject.file("../pubspec.yaml").readText()
+val pubspecBuildNumber = Regex(
+    "(?m)^version:\\s*\\d+\\.\\d+\\.\\d+\\+(\\d+)\\s*$",
+).find(pubspecVersion)?.groupValues?.get(1)
+    ?: error("Impossible de lire le numéro de build dans pubspec.yaml.")
+
 android {
     namespace = "com.recettebox.recette_box"
     compileSdk = flutter.compileSdkVersion
@@ -59,7 +65,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = androidVersionCode(
             flutter.versionName,
-            flutter.versionCode.toString(),
+            pubspecBuildNumber,
         )
         versionName = flutter.versionName
     }

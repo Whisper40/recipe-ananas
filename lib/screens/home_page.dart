@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../models/recipe.dart';
 import '../services/recipe_repository.dart';
+import '../services/update_checker.dart';
 import 'recipe_editor_page.dart';
 
 enum _RecipeMenuAction { export, import }
@@ -50,7 +51,7 @@ class _HomePageState extends State<HomePage> {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       setState(() {
-        _appVersion = '${info.version}+${info.buildNumber}';
+        _appVersion = formatPackageVersion(info);
       });
     } catch (_) {
       if (!mounted) return;
