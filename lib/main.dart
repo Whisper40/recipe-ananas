@@ -49,6 +49,12 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
     if (_checkingUpdate) return;
     if (mounted) setState(() => _checkingUpdate = true);
 
+    if (showResult && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Recherche de mise à jour en cours…')),
+      );
+    }
+
     try {
       final result = await _updateChecker.checkForUpdateDetailed();
 
@@ -60,6 +66,9 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
       }
     } catch (e) {
       debugPrint('Erreur vérification mise à jour: $e');
+      if (showResult && mounted) {
+        _showErrorDialog('La recherche a échoué : $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _checkingUpdate = false);
@@ -83,6 +92,22 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
           'HTTP : ${result.statusCode ?? 'échec réseau'}\n\n'
           'URL : ${result.requestUri}',
         ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erreur de recherche'),
+        content: SelectableText(message),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),

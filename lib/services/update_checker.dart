@@ -118,7 +118,9 @@ class UpdateChecker {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await requestClient.get(requestUri, headers: headers);
+      final response = await requestClient
+          .get(requestUri, headers: headers)
+          .timeout(const Duration(seconds: 15));
       if (response.statusCode == 404) {
         return UpdateCheckResult(
           requestUri: requestUri,
