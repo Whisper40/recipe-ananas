@@ -101,7 +101,9 @@ class UpdateChecker {
     PackageInfo? info;
     try {
       try {
-        info = await PackageInfo.fromPlatform();
+        info = await PackageInfo.fromPlatform().timeout(
+          const Duration(seconds: 5),
+        );
       } catch (error) {
         debugPrint('Version installée indisponible: $error');
       }

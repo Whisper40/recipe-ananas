@@ -46,12 +46,27 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
   }
 
   Future<void> _checkForUpdatesWithFeedback({required bool showResult}) async {
-    if (_checkingUpdate) return;
+    if (_checkingUpdate) {
+      if (showResult && mounted) {
+        _showErrorDialog('Une recherche de mise à jour est déjà en cours.');
+      }
+      return;
+    }
     if (mounted) setState(() => _checkingUpdate = true);
 
     if (showResult && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Recherche de mise à jour en cours…')),
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Expanded(child: Text('Recherche de mise à jour…')),
+            ],
+          ),
+        ),
       );
     }
 
@@ -59,6 +74,9 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
       final result = await _updateChecker.checkForUpdateDetailed();
 
       if (!mounted) return;
+      if (showResult && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       if (result.isUpdateAvailable && result.release != null) {
         _showUpdateDialog(result.release!);
       } else if (showResult) {
@@ -67,6 +85,9 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
     } catch (e) {
       debugPrint('Erreur vérification mise à jour: $e');
       if (showResult && mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
         _showErrorDialog('La recherche a échoué : $e');
       }
     } finally {
