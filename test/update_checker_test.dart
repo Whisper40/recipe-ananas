@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:recette_box/services/update_checker.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -47,7 +48,13 @@ void main() {
         owner: 'Whisper40',
         repo: 'recipe-ananas',
         client: client,
-        packageInfoProvider: () async => null,
+        packageInfoProvider: () async => PackageInfo(
+          appName: 'Recettes Ananas',
+          packageName: 'com.recettebox.recette_box',
+          version: '1.0.3',
+          buildNumber: '1',
+          buildSignature: '',
+        ),
       ).checkForUpdate();
 
       expect(requestedUri.path, '/repos/Whisper40/recipe-ananas/releases');

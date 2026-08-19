@@ -46,25 +46,6 @@ class GitHubRelease {
   }
 }
 
-/// Résultat détaillé d'une vérification, destiné notamment au diagnostic.
-class UpdateCheckResult {
-  const UpdateCheckResult({
-    required this.requestUri,
-    required this.installedVersion,
-    this.release,
-    this.statusCode,
-    required this.message,
-    required this.isUpdateAvailable,
-  });
-
-  final Uri requestUri;
-  final String installedVersion;
-  final GitHubRelease? release;
-  final int? statusCode;
-  final String message;
-  final bool isUpdateAvailable;
-}
-
 /// Convertit le versionCode Android encodé en numéro de build Flutter logique.
 /// Les anciennes APK utilisaient directement le build (par exemple 9).
 String logicalBuildNumber(PackageInfo info) {
@@ -72,9 +53,6 @@ String logicalBuildNumber(PackageInfo info) {
   if (versionCode == null || versionCode < 10_000) return info.buildNumber;
   return (versionCode % 100).toString();
 }
-
-String formatPackageVersion(PackageInfo info) =>
-    '${info.version}+${logicalBuildNumber(info)}';
 
 /// Service de vérification et d’installation des mises à jour.
 class UpdateChecker {
@@ -103,28 +81,15 @@ class UpdateChecker {
   );
 
   Future<GitHubRelease?> checkForUpdate() async {
-    return (await checkForUpdateDetailed()).release;
-  }
-
-  /// Vérifie la mise à jour et retourne les informations utiles au diagnostic.
-  Future<UpdateCheckResult> checkForUpdateDetailed() async {
     final requestClient = client ?? http.Client();
-    final requestUri = _apiUri;
-    var installedVersion = 'inconnue';
-    PackageInfo? info;
     try {
-      try {
-        info =
-            await (packageInfoProvider == null
-                    ? PackageInfo.fromPlatform()
-                    : packageInfoProvider!())
-                .timeout(const Duration(seconds: 5));
-      } catch (error) {
-        debugPrint('Version installée indisponible: $error');
-      }
-      if (info != null) {
-        installedVersion = formatPackageVersion(info);
-      }
+      final info =
+          await (packageInfoProvider == null
+                  ? PackageInfo.fromPlatform()
+                  : packageInfoProvider!())
+              .timeout(const Duration(seconds: 5));
+      if (info == null) return null;
+
       final headers = <String, String>{
         'Accept': 'application/vnd.github+json',
         'Cache-Control': 'no-cache',
@@ -136,41 +101,12 @@ class UpdateChecker {
       }
 
       final response = await requestClient
-          .get(requestUri, headers: headers)
+          .get(_apiUri, headers: headers)
           .timeout(const Duration(seconds: 15));
-      if (response.statusCode == 404) {
-        return UpdateCheckResult(
-          requestUri: requestUri,
-          installedVersion: installedVersion,
-          statusCode: response.statusCode,
-          message: 'Dépôt ou releases GitHub introuvables.',
-          isUpdateAvailable: false,
-        );
-      }
-      if (response.statusCode != 200) {
-        debugPrint(
-          'Erreur GitHub API: ${response.statusCode} - ${response.body}',
-        );
-        return UpdateCheckResult(
-          requestUri: requestUri,
-          installedVersion: installedVersion,
-          statusCode: response.statusCode,
-          message: 'GitHub a répondu avec le code HTTP ${response.statusCode}.',
-          isUpdateAvailable: false,
-        );
-      }
+      if (response.statusCode != 200) return null;
 
       final decoded = jsonDecode(response.body);
-      if (decoded is! List<dynamic>) {
-        debugPrint('Réponse GitHub invalide: une liste était attendue.');
-        return UpdateCheckResult(
-          requestUri: requestUri,
-          installedVersion: installedVersion,
-          statusCode: response.statusCode,
-          message: 'Réponse GitHub invalide : une liste était attendue.',
-          isUpdateAvailable: false,
-        );
-      }
+      if (decoded is! List<dynamic>) return null;
 
       final releases = decoded
           .whereType<Map<String, dynamic>>()
@@ -180,42 +116,14 @@ class UpdateChecker {
           .toList();
 
       final release = _selectHighestVersion(releases);
-      if (release == null) {
-        return UpdateCheckResult(
-          requestUri: requestUri,
-          installedVersion: installedVersion,
-          statusCode: response.statusCode,
-          message: 'Aucune release publique avec un APK et un tag valide.',
-          isUpdateAvailable: false,
-        );
-      }
+      if (release == null) return null;
 
-      final current = info == null
-          ? null
-          : _AppVersion.parse(info.version, logicalBuildNumber(info));
+      final current = _AppVersion.parse(info.version, logicalBuildNumber(info));
       final available = _AppVersion.parseTag(release.tagName);
-      final isAvailable =
-          current != null &&
-          available != null &&
-          available.compareTo(current) > 0;
-      return UpdateCheckResult(
-        requestUri: requestUri,
-        installedVersion: installedVersion,
-        release: release,
-        statusCode: response.statusCode,
-        message: isAvailable
-            ? 'Une mise à jour est disponible.'
-            : 'Aucune mise à jour : la version distante n’est pas supérieure.',
-        isUpdateAvailable: isAvailable,
-      );
-    } catch (error) {
-      debugPrint('Erreur vérification mise à jour: $error');
-      return UpdateCheckResult(
-        requestUri: requestUri,
-        installedVersion: installedVersion,
-        message: 'Échec de la vérification : $error',
-        isUpdateAvailable: false,
-      );
+      if (current == null || available == null) return null;
+      return available.compareTo(current) > 0 ? release : null;
+    } catch (_) {
+      return null;
     } finally {
       if (client == null) requestClient.close();
     }
@@ -235,21 +143,6 @@ class UpdateChecker {
     }
 
     return selected;
-  }
-
-  /// Retourne true uniquement si la release GitHub est réellement plus récente.
-  Future<bool> isUpdateAvailable(GitHubRelease release) async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      final current = _AppVersion.parse(info.version, logicalBuildNumber(info));
-      final available = _AppVersion.parseTag(release.tagName);
-      return current != null &&
-          available != null &&
-          available.compareTo(current) > 0;
-    } catch (error) {
-      debugPrint('Erreur comparaison version: $error');
-      return false;
-    }
   }
 
   Future<void> downloadAndInstall(
@@ -339,8 +232,7 @@ class UpdateChecker {
       await sink.close();
       sink = null;
       return file.path;
-    } catch (error) {
-      debugPrint('Erreur téléchargement APK: $error');
+    } catch (_) {
       return null;
     } finally {
       await sink?.close();
