@@ -1,5 +1,14 @@
 # Recettes Ananas
 
+## Versions Android
+
+Android utilise le `versionCode` pour autoriser une mise à jour. Dans ce projet,
+il est calculé à partir de `major.minor.patch+build` : le changement de `patch`
+ou de `build` produit donc toujours un code supérieur. Par exemple,
+`1.0.5+2` génère `1000502` et `1.0.6+2` génère `1000602`.
+
+Les quatre composants doivent rester entre `0` et `99`.
+
 Application Flutter de gestion de recettes, en français, conçue pour Android 15 et supérieur.
 
 ## Fonctionnalités

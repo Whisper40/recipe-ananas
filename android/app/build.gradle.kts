@@ -20,6 +20,25 @@ val releaseKeystoreFile = keystoreProperties.getProperty("storeFile")?.let {
     rootProject.file(it)
 }
 
+// Android décide si un APK peut remplacer une installation existante avec
+// versionCode, et non avec versionName. Le suffixe après "+" seul était utilisé
+// auparavant : 1.0.5+2 et 1.0.6+2 avaient donc tous les deux le code 2.
+// Chaque partie est réservée sur deux chiffres, ce qui conserve un ordre
+// strictement croissant quand une version sémantique progresse.
+fun androidVersionCode(versionName: String, buildNumber: String): Int {
+    val match = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)$").matchEntire(versionName)
+        ?: error("Version Android invalide : '$versionName'. Format attendu : X.Y.Z")
+    val values = (match.groupValues.drop(1) + buildNumber).map {
+        it.toIntOrNull() ?: error("Numéro de build Android invalide : '$it'.")
+    }
+    require(values.all { it in 0..99 }) {
+        "Chaque composant de version Android doit être compris entre 0 et 99."
+    }
+
+    val (major, minor, patch, build) = values
+    return major * 1_000_000 + minor * 10_000 + patch * 100 + build
+}
+
 android {
     namespace = "com.recettebox.recette_box"
     compileSdk = flutter.compileSdkVersion
@@ -38,7 +57,10 @@ android {
         // L'application cible Android 15 et les versions ultérieures.
         minSdk = 35
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = androidVersionCode(
+            flutter.versionName,
+            flutter.versionCode.toString(),
+        )
         versionName = flutter.versionName
     }
 

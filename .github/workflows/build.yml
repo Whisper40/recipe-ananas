@@ -92,8 +92,29 @@ jobs:
           APK="build/app/outputs/flutter-apk/app-release.apk"
           test -s "$APK"
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt -type f | sort -V | tail -n 1)
           test -x "$APKSIGNER"
+          test -x "$AAPT"
           "$APKSIGNER" verify --verbose "$APK"
+
+          VERSION="${{ steps.version.outputs.value }}"
+          if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)\+([0-9]+)$ ]]; then
+            echo "Version invalide : $VERSION" >&2
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          BUILD="${BASH_REMATCH[4]}"
+          for COMPONENT in "$MAJOR" "$MINOR" "$PATCH" "$BUILD"; do
+            if (( COMPONENT > 99 )); then
+              echo "Chaque composant de version doit être compris entre 0 et 99." >&2
+              exit 1
+            fi
+          done
+          EXPECTED_VERSION_CODE=$((MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + BUILD))
+          ACTUAL_VERSION_CODE=$("$AAPT" dump badging "$APK" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          test "$ACTUAL_VERSION_CODE" = "$EXPECTED_VERSION_CODE"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
