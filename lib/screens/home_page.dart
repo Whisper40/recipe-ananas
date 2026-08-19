@@ -12,9 +12,14 @@ import 'recipe_editor_page.dart';
 enum _RecipeMenuAction { export, import }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.repository, super.key});
+  const HomePage({
+    required this.repository,
+    required this.onCheckForUpdates,
+    super.key,
+  });
 
   final RecipeRepository repository;
+  final Future<void> Function() onCheckForUpdates;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -447,14 +452,22 @@ class _HomePageState extends State<HomePage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-                child: Center(
-                  child: Text(
-                    'Version déployée : $_appVersion',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.grey.shade700,
+                child: Column(
+                  children: [
+                    Text(
+                      'Version déployée : $_appVersion',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: widget.onCheckForUpdates,
+                      icon: const Icon(Icons.system_update_alt_rounded),
+                      label: const Text('Rechercher une mise à jour'),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -46,6 +46,25 @@ class GitHubRelease {
   }
 }
 
+/// Résultat détaillé d'une vérification, destiné notamment au diagnostic.
+class UpdateCheckResult {
+  const UpdateCheckResult({
+    required this.requestUri,
+    required this.installedVersion,
+    this.release,
+    this.statusCode,
+    required this.message,
+    required this.isUpdateAvailable,
+  });
+
+  final Uri requestUri;
+  final String installedVersion;
+  final GitHubRelease? release;
+  final int? statusCode;
+  final String message;
+  final bool isUpdateAvailable;
+}
+
 /// Service de vérification et d’installation des mises à jour.
 class UpdateChecker {
   final String owner;
@@ -71,8 +90,24 @@ class UpdateChecker {
   );
 
   Future<GitHubRelease?> checkForUpdate() async {
+    return (await checkForUpdateDetailed()).release;
+  }
+
+  /// Vérifie la mise à jour et retourne les informations utiles au diagnostic.
+  Future<UpdateCheckResult> checkForUpdateDetailed() async {
     final requestClient = client ?? http.Client();
+    final requestUri = _apiUri;
+    var installedVersion = 'inconnue';
+    PackageInfo? info;
     try {
+      try {
+        info = await PackageInfo.fromPlatform();
+      } catch (error) {
+        debugPrint('Version installée indisponible: $error');
+      }
+      if (info != null) {
+        installedVersion = '${info.version}+${info.buildNumber}';
+      }
       final headers = <String, String>{
         'Accept': 'application/vnd.github+json',
         'Cache-Control': 'no-cache',
@@ -83,19 +118,39 @@ class UpdateChecker {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await requestClient.get(_apiUri, headers: headers);
-      if (response.statusCode == 404) return null;
+      final response = await requestClient.get(requestUri, headers: headers);
+      if (response.statusCode == 404) {
+        return UpdateCheckResult(
+          requestUri: requestUri,
+          installedVersion: installedVersion,
+          statusCode: response.statusCode,
+          message: 'Dépôt ou releases GitHub introuvables.',
+          isUpdateAvailable: false,
+        );
+      }
       if (response.statusCode != 200) {
         debugPrint(
           'Erreur GitHub API: ${response.statusCode} - ${response.body}',
         );
-        return null;
+        return UpdateCheckResult(
+          requestUri: requestUri,
+          installedVersion: installedVersion,
+          statusCode: response.statusCode,
+          message: 'GitHub a répondu avec le code HTTP ${response.statusCode}.',
+          isUpdateAvailable: false,
+        );
       }
 
       final decoded = jsonDecode(response.body);
       if (decoded is! List<dynamic>) {
         debugPrint('Réponse GitHub invalide: une liste était attendue.');
-        return null;
+        return UpdateCheckResult(
+          requestUri: requestUri,
+          installedVersion: installedVersion,
+          statusCode: response.statusCode,
+          message: 'Réponse GitHub invalide : une liste était attendue.',
+          isUpdateAvailable: false,
+        );
       }
 
       final releases = decoded
@@ -105,10 +160,43 @@ class UpdateChecker {
           .where((release) => release.downloadUrl.isNotEmpty)
           .toList();
 
-      return _selectHighestVersion(releases);
+      final release = _selectHighestVersion(releases);
+      if (release == null) {
+        return UpdateCheckResult(
+          requestUri: requestUri,
+          installedVersion: installedVersion,
+          statusCode: response.statusCode,
+          message: 'Aucune release publique avec un APK et un tag valide.',
+          isUpdateAvailable: false,
+        );
+      }
+
+      final current = info == null
+          ? null
+          : _AppVersion.parse(info.version, info.buildNumber);
+      final available = _AppVersion.parseTag(release.tagName);
+      final isAvailable =
+          current != null &&
+          available != null &&
+          available.compareTo(current) > 0;
+      return UpdateCheckResult(
+        requestUri: requestUri,
+        installedVersion: installedVersion,
+        release: release,
+        statusCode: response.statusCode,
+        message: isAvailable
+            ? 'Une mise à jour est disponible.'
+            : 'Aucune mise à jour : la version distante n’est pas supérieure.',
+        isUpdateAvailable: isAvailable,
+      );
     } catch (error) {
       debugPrint('Erreur vérification mise à jour: $error');
-      return null;
+      return UpdateCheckResult(
+        requestUri: requestUri,
+        installedVersion: installedVersion,
+        message: 'Échec de la vérification : $error',
+        isUpdateAvailable: false,
+      );
     } finally {
       if (client == null) requestClient.close();
     }

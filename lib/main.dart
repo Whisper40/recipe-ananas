@@ -42,17 +42,21 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
   }
 
   Future<void> _checkForUpdates() async {
+    await _checkForUpdatesWithFeedback(showResult: false);
+  }
+
+  Future<void> _checkForUpdatesWithFeedback({required bool showResult}) async {
     if (_checkingUpdate) return;
-    setState(() => _checkingUpdate = true);
+    if (mounted) setState(() => _checkingUpdate = true);
 
     try {
-      final release = await _updateChecker.checkForUpdate();
+      final result = await _updateChecker.checkForUpdateDetailed();
 
-      if (release != null && mounted) {
-        final isAvailable = await _updateChecker.isUpdateAvailable(release);
-        if (isAvailable && mounted) {
-          _showUpdateDialog(release);
-        }
+      if (!mounted) return;
+      if (result.isUpdateAvailable && result.release != null) {
+        _showUpdateDialog(result.release!);
+      } else if (showResult) {
+        _showCheckResult(result);
       }
     } catch (e) {
       debugPrint('Erreur vérification mise à jour: $e');
@@ -61,6 +65,32 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
         setState(() => _checkingUpdate = false);
       }
     }
+  }
+
+  Future<void> _manualCheckForUpdates() async {
+    await _checkForUpdatesWithFeedback(showResult: true);
+  }
+
+  void _showCheckResult(UpdateCheckResult result) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Diagnostic des mises à jour'),
+        content: SelectableText(
+          '${result.message}\n\n'
+          'Version installée : ${result.installedVersion}\n'
+          'Version distante : ${result.release?.tagName ?? 'aucune'}\n'
+          'HTTP : ${result.statusCode ?? 'échec réseau'}\n\n'
+          'URL : ${result.requestUri}',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showUpdateDialog(GitHubRelease release) {
@@ -145,7 +175,10 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
           color: Colors.white,
         ),
       ),
-      home: HomePage(repository: widget.repository),
+      home: HomePage(
+        repository: widget.repository,
+        onCheckForUpdates: _manualCheckForUpdates,
+      ),
     );
   }
 }
