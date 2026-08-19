@@ -47,6 +47,7 @@ void main() {
         owner: 'Whisper40',
         repo: 'recipe-ananas',
         client: client,
+        packageInfoProvider: () async => null,
       ).checkForUpdate();
 
       expect(requestedUri.path, '/repos/Whisper40/recipe-ananas/releases');

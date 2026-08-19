@@ -71,12 +71,14 @@ class UpdateChecker {
   final String repo;
   final String? token;
   final http.Client? client;
+  final Future<PackageInfo?> Function()? packageInfoProvider;
 
   UpdateChecker({
     required this.owner,
     required this.repo,
     this.token,
     this.client,
+    this.packageInfoProvider,
   });
 
   Uri get _apiUri => Uri.https(
@@ -101,9 +103,11 @@ class UpdateChecker {
     PackageInfo? info;
     try {
       try {
-        info = await PackageInfo.fromPlatform().timeout(
-          const Duration(seconds: 5),
-        );
+        info =
+            await (packageInfoProvider == null
+                    ? PackageInfo.fromPlatform()
+                    : packageInfoProvider!())
+                .timeout(const Duration(seconds: 5));
       } catch (error) {
         debugPrint('Version installée indisponible: $error');
       }

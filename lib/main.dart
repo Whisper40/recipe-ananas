@@ -9,6 +9,7 @@ import 'services/update_checker.dart';
 /// Configuration publique GitHub pour la vérification automatique des versions.
 const _githubOwner = 'Whisper40';
 const _githubRepo = 'recipe-ananas';
+final _navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,9 +19,10 @@ Future<void> main() async {
 }
 
 class RecipeBoxApp extends StatefulWidget {
-  const RecipeBoxApp({required this.repository, super.key});
+  const RecipeBoxApp({required this.repository, this.updateChecker, super.key});
 
   final RecipeRepository repository;
+  final UpdateChecker? updateChecker;
 
   @override
   State<RecipeBoxApp> createState() => _RecipeBoxAppState();
@@ -28,14 +30,14 @@ class RecipeBoxApp extends StatefulWidget {
 
 class _RecipeBoxAppState extends State<RecipeBoxApp> {
   bool _checkingUpdate = false;
-  late final UpdateChecker _updateChecker = UpdateChecker(
-    owner: _githubOwner,
-    repo: _githubRepo,
-  );
+  late final UpdateChecker _updateChecker;
 
   @override
   void initState() {
     super.initState();
+    _updateChecker =
+        widget.updateChecker ??
+        UpdateChecker(owner: _githubOwner, repo: _githubRepo);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
     });
@@ -54,28 +56,33 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
     }
     if (mounted) setState(() => _checkingUpdate = true);
 
+    var progressDialogShown = false;
     if (showResult && mounted) {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Expanded(child: Text('Recherche de mise à jour…')),
-            ],
+      final dialogContext = _navigatorKey.currentContext;
+      if (dialogContext != null) {
+        progressDialogShown = true;
+        showDialog<void>(
+          context: dialogContext,
+          barrierDismissible: false,
+          builder: (_) => const AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 20),
+                Expanded(child: Text('Recherche de mise à jour…')),
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     try {
       final result = await _updateChecker.checkForUpdateDetailed();
 
       if (!mounted) return;
-      if (showResult && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (progressDialogShown) {
+        _navigatorKey.currentState?.pop();
       }
       if (result.isUpdateAvailable && result.release != null) {
         _showUpdateDialog(result.release!);
@@ -85,8 +92,8 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
     } catch (e) {
       debugPrint('Erreur vérification mise à jour: $e');
       if (showResult && mounted) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+        if (progressDialogShown) {
+          _navigatorKey.currentState?.pop();
         }
         _showErrorDialog('La recherche a échoué : $e');
       }
@@ -102,8 +109,10 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
   }
 
   void _showCheckResult(UpdateCheckResult result) {
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return;
     showDialog<void>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: const Text('Diagnostic des mises à jour'),
         content: SelectableText(
@@ -124,8 +133,10 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
   }
 
   void _showErrorDialog(String message) {
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return;
     showDialog<void>(
-      context: context,
+      context: dialogContext,
       builder: (context) => AlertDialog(
         title: const Text('Erreur de recherche'),
         content: SelectableText(message),
@@ -140,8 +151,10 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
   }
 
   void _showUpdateDialog(GitHubRelease release) {
+    final dialogContext = _navigatorKey.currentContext;
+    if (dialogContext == null) return;
     showDialog(
-      context: context,
+      context: dialogContext,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Mise à jour disponible'),
@@ -166,7 +179,7 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
             onPressed: () {
               Navigator.pop(context);
               _updateChecker.downloadAndInstall(
-                context,
+                dialogContext,
                 release,
                 onInstallComplete: () {
                   SystemNavigator.pop();
@@ -189,6 +202,7 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
     );
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Recettes Ananas',
       locale: const Locale('fr'),
       supportedLocales: const [Locale('fr')],
