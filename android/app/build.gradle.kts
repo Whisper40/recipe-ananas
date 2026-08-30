@@ -86,6 +86,10 @@ android {
             // Never publish a release APK signed with the debug certificate:
             // Android rejects it as an update of an existing installation.
             signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
