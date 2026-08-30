@@ -5,10 +5,23 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:path_provider/path_provider.dart';
 
 class RecipeOcrService {
-  static String combineTexts(Iterable<String> texts) => texts
-      .map((text) => text.trim())
-      .where((text) => text.isNotEmpty)
-      .join('\n\n');
+  static String combineTexts(Iterable<String> texts) =>
+      texts.map(removeHashtags).where((text) => text.isNotEmpty).join('\n\n');
+
+  static String removeHashtags(String text) {
+    final hashtagPattern = RegExp(r'#[\p{L}\p{N}_]+', unicode: true);
+    return text
+        .split('\n')
+        .map(
+          (line) => line
+              .replaceAll(hashtagPattern, '')
+              .replaceAll(RegExp(r'[ \t]{2,}'), ' ')
+              .trim(),
+        )
+        .where((line) => line.isNotEmpty)
+        .join('\n')
+        .trim();
+  }
 
   Future<String> extractText(List<PlatformFile> images) async {
     final recognizer = TextRecognizer(script: TextRecognitionScript.latin);

@@ -479,16 +479,15 @@ class _OcrPreviewDialogState extends State<_OcrPreviewDialog> {
             const SizedBox(height: 16),
             SegmentedButton<_OcrDestination>(
               expandedInsets: EdgeInsets.zero,
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: _OcrDestination.ingredients,
-                  icon: Icon(Icons.shopping_basket_outlined),
-                  label: Text('Ingrédients'),
+                  label: Text('Ingrédients', softWrap: false),
                 ),
                 ButtonSegment(
                   value: _OcrDestination.preparation,
-                  icon: Icon(Icons.menu_book_outlined),
-                  label: Text('Préparation'),
+                  label: Text('Préparation', softWrap: false),
                 ),
               ],
               selected: {_destination},
@@ -510,15 +509,22 @@ class _OcrPreviewDialogState extends State<_OcrPreviewDialog> {
           ],
         ),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton.icon(
-          onPressed: _textController.text.trim().isEmpty ? null : _insert,
-          icon: const Icon(Icons.playlist_add_rounded),
-          label: const Text('Insérer'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: _textController.text.trim().isEmpty ? null : _insert,
+              icon: const Icon(Icons.playlist_add_rounded),
+              label: const Text('Insérer'),
+            ),
+          ],
         ),
       ],
     );
