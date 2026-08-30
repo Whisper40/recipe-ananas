@@ -11,10 +11,7 @@ import 'recipe_editor_page.dart';
 enum _RecipeMenuAction { export, import }
 
 class HomePage extends StatefulWidget {
-  const HomePage({
-    required this.repository,
-    super.key,
-  });
+  const HomePage({required this.repository, super.key});
 
   final RecipeRepository repository;
 
@@ -24,6 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   String _searchQuery = '';
   String? _selectedCategory;
   late List<Recipe> _recipes;
@@ -43,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -69,6 +68,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openEditor([Recipe? recipe]) async {
+    // Le focus de la recherche ne doit pas être restauré après le retour.
+    _searchFocusNode.unfocus();
     final result = await Navigator.of(context).push<Recipe>(
       MaterialPageRoute(
         builder: (_) => RecipeEditorPage(
@@ -78,7 +79,10 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-    if (result == null || !mounted) return;
+    if (!mounted) return;
+    // La navigation peut restaurer le dernier champ focalisé de la page.
+    _searchFocusNode.unfocus();
+    if (result == null) return;
     await widget.repository.upsert(result);
     if (!mounted) return;
     setState(() => _recipes = [...widget.repository.recipes]);
@@ -398,6 +402,7 @@ class _HomePageState extends State<HomePage> {
             SliverToBoxAdapter(
               child: _Header(
                 searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
                 categories: _categories,
                 selectedCategory: _selectedCategory,
                 onCategorySelected: (category) =>
@@ -446,6 +451,7 @@ class _HomePageState extends State<HomePage> {
 class _Header extends StatelessWidget {
   const _Header({
     required this.searchController,
+    required this.searchFocusNode,
     required this.categories,
     required this.selectedCategory,
     required this.onCategorySelected,
@@ -454,6 +460,7 @@ class _Header extends StatelessWidget {
   });
 
   final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final List<String> categories;
   final String? selectedCategory;
   final ValueChanged<String?> onCategorySelected;
@@ -469,6 +476,7 @@ class _Header extends StatelessWidget {
         children: [
           TextField(
             controller: searchController,
+            focusNode: searchFocusNode,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Rechercher une recette…',

@@ -62,6 +62,13 @@ unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 flutter pub get
 ```
 
+Le proxy doit également être désactivé pour exécuter les tests Flutter :
+
+```bash
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+flutter test
+```
+
 ## Générer l’APK
 
 Le script `build_apk.sh` désactive le proxy uniquement pour les commandes Flutter, vérifie l’analyse statique puis génère un APK release dans `dist/` :
