@@ -170,3 +170,38 @@ class RichTextBoldButton extends StatelessWidget {
     );
   }
 }
+
+class RichTextUnderlineButton extends StatelessWidget {
+  const RichTextUnderlineButton({required this.controller, super.key});
+
+  final QuillController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isUnderlined = controller
+            .getSelectionStyle()
+            .attributes
+            .containsKey(Attribute.underline.key);
+        return IconButton(
+          tooltip: isUnderlined
+              ? 'Désactiver le soulignement'
+              : 'Souligner le texte',
+          onPressed: () {
+            controller.formatSelection(
+              isUnderlined
+                  ? Attribute.clone(Attribute.underline, null)
+                  : Attribute.underline,
+            );
+          },
+          icon: Icon(
+            Icons.format_underline_rounded,
+            color: isUnderlined ? Theme.of(context).colorScheme.primary : null,
+          ),
+        );
+      },
+    );
+  }
+}

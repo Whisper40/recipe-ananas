@@ -45,4 +45,34 @@ void main() {
     controller.dispose();
     restored.dispose();
   });
+
+  test('conserve le soulignement dans le Delta sauvegardé', () {
+    final controller = RichTextStorage.controllerFromText(
+      '500 g de pommes\n2 œufs',
+    );
+    controller.updateSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 5),
+      ChangeSource.local,
+    );
+    controller.formatSelection(Attribute.underline);
+
+    final restored = RichTextStorage.controllerFromText(
+      RichTextStorage.encode(controller),
+    );
+    restored.updateSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 5),
+      ChangeSource.local,
+    );
+
+    expect(
+      restored.getSelectionStyle().attributes[Attribute.underline.key],
+      isNotNull,
+    );
+    expect(
+      RichTextStorage.plainText(RichTextStorage.encode(restored)),
+      '500 g de pommes\n2 œufs',
+    );
+    controller.dispose();
+    restored.dispose();
+  });
 }

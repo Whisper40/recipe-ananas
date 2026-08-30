@@ -104,9 +104,7 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
   Future<void> _importScreenshots() async {
     if (!_isEditable || _isExtractingText) return;
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-      );
+      final result = await FilePicker.pickFiles(type: FileType.image);
       if (result.isEmpty || !mounted) return;
 
       setState(() => _isExtractingText = true);
@@ -345,7 +343,15 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
                   ),
                 ),
                 if (_isEditable)
-                  RichTextBoldButton(controller: _ingredientsController),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RichTextBoldButton(controller: _ingredientsController),
+                      RichTextUnderlineButton(
+                        controller: _ingredientsController,
+                      ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -372,7 +378,15 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
                   ),
                 ),
                 if (_isEditable)
-                  RichTextBoldButton(controller: _descriptionController),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RichTextBoldButton(controller: _descriptionController),
+                      RichTextUnderlineButton(
+                        controller: _descriptionController,
+                      ),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -443,9 +457,9 @@ class _OcrPreviewDialogState extends State<_OcrPreviewDialog> {
   void _insert() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
-    Navigator.of(context).pop(
-      _OcrImportData(text: text, destination: _destination),
-    );
+    Navigator.of(
+      context,
+    ).pop(_OcrImportData(text: text, destination: _destination));
   }
 
   @override
@@ -478,9 +492,8 @@ class _OcrPreviewDialogState extends State<_OcrPreviewDialog> {
                 ),
               ],
               selected: {_destination},
-              onSelectionChanged: (selection) => setState(
-                () => _destination = selection.first,
-              ),
+              onSelectionChanged: (selection) =>
+                  setState(() => _destination = selection.first),
             ),
             const SizedBox(height: 16),
             TextField(
