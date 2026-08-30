@@ -5,7 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import '../models/recipe.dart';
+import '../services/recipe_ocr_service.dart';
 import '../services/rich_text_storage.dart';
+
+enum _OcrDestination { ingredients, preparation }
+
+class _OcrImportData {
+  const _OcrImportData({required this.text, required this.destination});
+
+  final String text;
+  final _OcrDestination destination;
+}
 
 class RecipeEditorPage extends StatefulWidget {
   const RecipeEditorPage({
@@ -33,6 +43,7 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
   late List<String> _availableCategories;
   String? _imageBase64;
   bool _isPickingImage = false;
+  bool _isExtractingText = false;
   bool _editMode = false;
 
   bool get _isExistingRecipe => widget.recipe != null;
@@ -88,6 +99,62 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
   void _removeImage() {
     if (!_isEditable) return;
     setState(() => _imageBase64 = null);
+  }
+
+  Future<void> _importScreenshots() async {
+    if (!_isEditable || _isExtractingText) return;
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+      );
+      if (result.isEmpty || !mounted) return;
+
+      setState(() => _isExtractingText = true);
+      final extractedText = await RecipeOcrService().extractText(result);
+      if (!mounted) return;
+      if (extractedText.isEmpty) {
+        _showMessage('Aucun texte n’a été détecté dans ces captures.');
+        return;
+      }
+
+      final importData = await showDialog<_OcrImportData>(
+        context: context,
+        builder: (context) => _OcrPreviewDialog(text: extractedText),
+      );
+      if (!mounted || importData == null) return;
+
+      final controller = importData.destination == _OcrDestination.ingredients
+          ? _ingredientsController
+          : _descriptionController;
+      _insertText(controller, importData.text);
+      _showMessage('Texte importé dans la recette.');
+    } on RecipeOcrException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (error) {
+      if (mounted) _showMessage('Import des captures impossible : $error');
+    } finally {
+      if (mounted) setState(() => _isExtractingText = false);
+    }
+  }
+
+  void _insertText(QuillController controller, String value) {
+    final text = value.trim();
+    if (text.isEmpty) return;
+    final existingText = controller.document.toPlainText().trim();
+    final insertion = existingText.isEmpty ? text : '\n\n$text';
+    final offset = controller.document.length - 1;
+    controller.replaceText(
+      offset,
+      0,
+      insertion,
+      TextSelection.collapsed(offset: offset),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _addCategory() async {
@@ -252,6 +319,22 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
               onAdd: _addCategory,
             ),
             const SizedBox(height: 18),
+            if (_isEditable)
+              OutlinedButton.icon(
+                onPressed: _isExtractingText ? null : _importScreenshots,
+                icon: _isExtractingText
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.document_scanner_outlined),
+                label: Text(
+                  _isExtractingText
+                      ? 'Lecture des captures…'
+                      : 'Importer depuis des captures Instagram',
+                ),
+              ),
+            if (_isEditable) const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
@@ -324,6 +407,107 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _OcrPreviewDialog extends StatefulWidget {
+  const _OcrPreviewDialog({required this.text});
+
+  final String text;
+
+  @override
+  State<_OcrPreviewDialog> createState() => _OcrPreviewDialogState();
+}
+
+class _OcrPreviewDialogState extends State<_OcrPreviewDialog> {
+  late final TextEditingController _textController;
+  _OcrDestination _destination = _OcrDestination.ingredients;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(text: widget.text);
+    _textController.addListener(_textChanged);
+  }
+
+  void _textChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _textController.removeListener(_textChanged);
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _insert() {
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
+    Navigator.of(context).pop(
+      _OcrImportData(text: text, destination: _destination),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      icon: const Icon(Icons.document_scanner_outlined),
+      title: const Text('Vérifier le texte importé'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Relisez et corrigez le résultat de la lecture avant de l’insérer dans la recette.',
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<_OcrDestination>(
+              expandedInsets: EdgeInsets.zero,
+              segments: const [
+                ButtonSegment(
+                  value: _OcrDestination.ingredients,
+                  icon: Icon(Icons.shopping_basket_outlined),
+                  label: Text('Ingrédients'),
+                ),
+                ButtonSegment(
+                  value: _OcrDestination.preparation,
+                  icon: Icon(Icons.menu_book_outlined),
+                  label: Text('Préparation'),
+                ),
+              ],
+              selected: {_destination},
+              onSelectionChanged: (selection) => setState(
+                () => _destination = selection.first,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _textController,
+              minLines: 8,
+              maxLines: 14,
+              textCapitalization: TextCapitalization.sentences,
+              keyboardType: TextInputType.multiline,
+              decoration: const InputDecoration(
+                labelText: 'Texte extrait',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+        FilledButton.icon(
+          onPressed: _textController.text.trim().isEmpty ? null : _insert,
+          icon: const Icon(Icons.playlist_add_rounded),
+          label: const Text('Insérer'),
+        ),
+      ],
     );
   }
 }

@@ -23,6 +23,7 @@ Application Flutter de gestion de recettes, en français, conçue pour Android 1
 - Nom Android : **Recettes Ananas**, avec une icône photo d’ananas.
 - Recherche insensible à la casse sur le titre.
 - Mise en forme en gras d’une sélection dans les ingrédients et la préparation.
+- Import local du texte de plusieurs captures Instagram par OCR, sans traduction, avec prévisualisation avant insertion.
 - Tri alphabétique automatique.
 - Catégories personnalisées, sélection multiple sur une recette et filtre par catégorie.
 - Ouverture des recettes en lecture seule, avec bouton d’édition explicite.
