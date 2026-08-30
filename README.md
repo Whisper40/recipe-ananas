@@ -69,13 +69,10 @@ unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 flutter test
 ```
 
-## Générer l’APK
+## Publication de l’APK
 
-Le script `build_apk.sh` désactive le proxy uniquement pour les commandes Flutter, vérifie l’analyse statique puis génère un APK release dans `dist/` :
-
-```bash
-./build_apk.sh
-```
+Le build release et la publication de l’APK sont réalisés par GitHub Actions
+après chaque push sur `main`.
 
 Les APK release doivent toujours être signés avec le même keystore. La CI
 utilise les secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` et
@@ -85,8 +82,6 @@ augmenter à chaque publication. Sans cette continuité de signature, Android
 refuse une mise à jour avec un message de conflit de package ; une ancienne
 installation signée avec une clé différente doit alors être désinstallée une
 fois.
-
-Le script détecte automatiquement le SDK Android installé par Homebrew dans `/opt/homebrew/share/android-commandlinetools` ainsi que Java 17. Pour un autre emplacement, définir `ANDROID_HOME` et `JAVA_HOME` avant son exécution.
 
 ## Format de sauvegarde
 
