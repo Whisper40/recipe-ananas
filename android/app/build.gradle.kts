@@ -7,6 +7,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// google_mlkit_text_recognition references the optional script classes
+// from its Android plugin. Include them in the application as well so
+// release/R8 builds cannot leave a runtime class unresolved.
+dependencies {
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+}
+
 // Load keystore properties
 // key.properties and the keystore are generated in android/ by CI. Resolving
 // both paths from the Android root also makes the same configuration work
