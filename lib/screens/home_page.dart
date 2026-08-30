@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/recipe.dart';
 import '../services/recipe_repository.dart';
+import '../services/rich_text_storage.dart';
 import 'recipe_editor_page.dart';
 
 enum _RecipeMenuAction { export, import }
@@ -568,10 +569,12 @@ class _RecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final preview = recipe.description.isNotEmpty
-        ? recipe.description
-        : recipe.ingredients.isNotEmpty
-        ? recipe.ingredients
+    final description = RichTextStorage.plainText(recipe.description);
+    final ingredients = RichTextStorage.plainText(recipe.ingredients);
+    final preview = description.isNotEmpty
+        ? description
+        : ingredients.isNotEmpty
+        ? ingredients
         : 'Aucun détail ajouté pour le moment.';
     return Card(
       child: InkWell(

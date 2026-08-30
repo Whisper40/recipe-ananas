@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
 
 import '../models/recipe.dart';
+import '../services/rich_text_storage.dart';
 
 class RecipeEditorPage extends StatefulWidget {
   const RecipeEditorPage({
@@ -24,8 +26,8 @@ class RecipeEditorPage extends StatefulWidget {
 class _RecipeEditorPageState extends State<RecipeEditorPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
-  late final TextEditingController _ingredientsController;
-  late final TextEditingController _descriptionController;
+  late final QuillController _ingredientsController;
+  late final QuillController _descriptionController;
   late int _rating;
   late List<String> _selectedCategories;
   late List<String> _availableCategories;
@@ -41,8 +43,12 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
     super.initState();
     final recipe = widget.recipe;
     _titleController = TextEditingController(text: recipe?.title);
-    _ingredientsController = TextEditingController(text: recipe?.ingredients);
-    _descriptionController = TextEditingController(text: recipe?.description);
+    _ingredientsController = RichTextStorage.controllerFromText(
+      recipe?.ingredients,
+    );
+    _descriptionController = RichTextStorage.controllerFromText(
+      recipe?.description,
+    );
     _rating = recipe?.rating ?? 0;
     _selectedCategories = recipe?.categories.toList() ?? <String>[];
     _availableCategories = [
@@ -63,9 +69,7 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
     if (_isPickingImage) return;
     setState(() => _isPickingImage = true);
     try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-      );
+      final result = await FilePicker.pickFiles(type: FileType.image);
       if (result.isEmpty || !mounted) return;
       final picked = result.single;
       final bytes = await picked.readAsBytes();
@@ -108,16 +112,16 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
     final recipe = existing == null
         ? Recipe.create(
             title: _titleController.text,
-            ingredients: _ingredientsController.text,
-            description: _descriptionController.text,
+            ingredients: RichTextStorage.encode(_ingredientsController),
+            description: RichTextStorage.encode(_descriptionController),
             rating: _rating,
             categories: _selectedCategories,
             imageBase64: _imageBase64,
           )
         : existing.copyWith(
             title: _titleController.text,
-            ingredients: _ingredientsController.text,
-            description: _descriptionController.text,
+            ingredients: RichTextStorage.encode(_ingredientsController),
+            description: RichTextStorage.encode(_descriptionController),
             rating: _rating,
             categories: _selectedCategories,
             imageBase64: _imageBase64,
@@ -248,50 +252,56 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
               onAdd: _addCategory,
             ),
             const SizedBox(height: 18),
-            _SectionLabel(
-              icon: Icons.shopping_basket_outlined,
-              title: 'Ingrédients',
-              color: colors.primary,
+            Row(
+              children: [
+                Expanded(
+                  child: _SectionLabel(
+                    icon: Icons.shopping_basket_outlined,
+                    title: 'Ingrédients',
+                    color: colors.primary,
+                  ),
+                ),
+                if (_isEditable)
+                  RichTextBoldButton(controller: _ingredientsController),
+              ],
             ),
             const SizedBox(height: 8),
             if (_isEditable)
-              TextFormField(
+              RichTextEditingField(
                 controller: _ingredientsController,
-                textCapitalization: TextCapitalization.sentences,
-                minLines: 7,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  hintText:
-                      'Un ingrédient par ligne\nEx. 500 g de pommes de terre',
-                  alignLabelWithHint: true,
-                ),
+                minHeight: 190,
+                placeholder:
+                    'Un ingrédient par ligne\nEx. 500 g de pommes de terre',
               )
             else
-              _ReadableText(
-                text: _ingredientsController.text,
+              RichTextView(
+                text: widget.recipe?.ingredients ?? '',
                 emptyText: 'Aucun ingrédient renseigné.',
               ),
             const SizedBox(height: 22),
-            _SectionLabel(
-              icon: Icons.menu_book_rounded,
-              title: 'Description et préparation',
-              color: colors.primary,
+            Row(
+              children: [
+                Expanded(
+                  child: _SectionLabel(
+                    icon: Icons.menu_book_rounded,
+                    title: 'Description et préparation',
+                    color: colors.primary,
+                  ),
+                ),
+                if (_isEditable)
+                  RichTextBoldButton(controller: _descriptionController),
+              ],
             ),
             const SizedBox(height: 8),
             if (_isEditable)
-              TextFormField(
+              RichTextEditingField(
                 controller: _descriptionController,
-                textCapitalization: TextCapitalization.sentences,
-                minLines: 10,
-                maxLines: null,
-                decoration: const InputDecoration(
-                  hintText: 'Décrivez la préparation, vos astuces…',
-                  alignLabelWithHint: true,
-                ),
+                minHeight: 250,
+                placeholder: 'Décrivez la préparation, vos astuces…',
               )
             else
-              _ReadableText(
-                text: _descriptionController.text,
+              RichTextView(
+                text: widget.recipe?.description ?? '',
                 emptyText: 'Aucune description renseignée.',
               ),
             const SizedBox(height: 30),
@@ -450,25 +460,6 @@ class _CategoryField extends StatelessWidget {
                 .toList(),
           ),
       ],
-    );
-  }
-}
-
-class _ReadableText extends StatelessWidget {
-  const _ReadableText({required this.text, required this.emptyText});
-
-  final String text;
-  final String emptyText;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SelectableText(
-      text.isEmpty ? emptyText : text,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        height: 1.45,
-        color: text.isEmpty ? colors.onSurfaceVariant : null,
-      ),
     );
   }
 }
