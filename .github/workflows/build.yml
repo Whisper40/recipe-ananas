@@ -136,9 +136,9 @@ jobs:
         with:
           files: build/app/outputs/flutter-apk/app-release.apk
           tag_name: v${{ steps.version.outputs.value }}
-          name: Release ${{ steps.version.outputs.value }}
+          name: Beta ${{ steps.version.outputs.value }}
           body: |
-            ## Nouvelle version disponible
+            ## Nouvelle version beta disponible
 
             - Version: ${{ steps.version.outputs.value }}
             - Commit: ${{ github.sha }}
@@ -146,6 +146,6 @@ jobs:
 
             Téléchargez l'APK ci-dessous pour installer la mise à jour.
           draft: false
-          prerelease: false
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

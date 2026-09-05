@@ -32,7 +32,7 @@ Application Flutter de gestion de recettes, en français, conçue pour Android 1
 - Export JSON manuel avec nom daté (`recettes_YYYYMMDD_HHmmss.json`) via le sélecteur Android, y compris vers Nextcloud.
 - Restauration d’un backup Recettes Ananas, d’un tableau `recipes_0.json` ou d’une archive `.rtk` MyRecipeBox, avec confirmation avant remplacement des données actuelles.
 - Affichage de la version déployée et vérification automatique des releases GitHub, avec téléchargement puis lancement de l’installation de l’APK.
-- Choix du canal de mises à jour : Stable utilise la release GitHub marquée latest, Beta utilise la dernière release publiée.
+- Choix du canal de mises à jour : Stable utilise la release GitHub marquée latest, Beta utilise la dernière release publiée, y compris les pre-releases.
 - Icône de l’application : [Pineapple](https://www.flaticon.com/free-icon/pineapple_5582711), créée par [andinur](https://www.flaticon.com/authors/andinur) (attribution Flaticon requise).
 
 ## Migrer une sauvegarde MyRecipeBox
@@ -76,6 +76,11 @@ flutter test
 
 Le build release et la publication de l’APK sont réalisés par GitHub Actions
 après chaque push sur `main`.
+
+Les publications automatiques sont des pre-releases et sont donc destinées au
+canal Beta. Pour publier une version stable, ouvrir la release concernée sur
+GitHub, choisir **Edit**, désactiver **Set as a pre-release**, puis la marquer
+manuellement comme **Latest**. Le canal Stable utilise alors cette release.
 
 Les APK release doivent toujours être signés avec le même keystore. La CI
 utilise les secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` et
