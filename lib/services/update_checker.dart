@@ -147,14 +147,20 @@ class UpdateChecker {
     }
     if (decoded is! List) return null;
 
+    GitHubRelease? latestRelease;
+    _AppVersion? latestVersion;
     for (final item in decoded) {
       if (item is! Map<String, dynamic> || item['draft'] == true) continue;
       final release = GitHubRelease.fromJson(item);
-      if (release.tagName.isNotEmpty && release.downloadUrl.isNotEmpty) {
-        return release;
+      if (release.tagName.isEmpty || release.downloadUrl.isEmpty) continue;
+      final version = _AppVersion.parseTag(release.tagName);
+      if (version == null) continue;
+      if (latestVersion == null || version.compareTo(latestVersion) > 0) {
+        latestRelease = release;
+        latestVersion = version;
       }
     }
-    return null;
+    return latestRelease;
   }
 
   Future<void> downloadAndInstall(

@@ -45,7 +45,7 @@ void main() {
     expect(release?.tagName, 'v1.0.4+2');
   });
 
-  test('utilise la dernière release publiée sur le canal beta', () async {
+  test('utilise la version la plus élevée sur le canal beta', () async {
     late Uri requestedUri;
     final release = await UpdateChecker(
       owner: 'Whisper40',
@@ -56,11 +56,24 @@ void main() {
         return http.Response(
           jsonEncode([
             {
-              'tag_name': 'v1.0.7+1',
+              'tag_name': 'v1.0.6+13',
+              'draft': false,
+              'assets': [
+                {
+                  'browser_download_url':
+                      'https://example.com/app-1.0.6+13.apk',
+                },
+              ],
+            },
+            {
+              'tag_name': 'v1.0.6+14',
               'draft': false,
               'prerelease': true,
               'assets': [
-                {'browser_download_url': 'https://example.com/app-1.0.7+1.apk'},
+                {
+                  'browser_download_url':
+                      'https://example.com/app-1.0.6+14.apk',
+                },
               ],
             },
           ]),
@@ -71,14 +84,14 @@ void main() {
         appName: 'Recettes Ananas',
         packageName: 'com.recettebox.recette_box',
         version: '1.0.6',
-        buildNumber: '12',
+        buildNumber: '13',
         buildSignature: '',
       ),
     ).checkForUpdate();
 
     expect(requestedUri.path, '/repos/Whisper40/recipe-ananas/releases');
     expect(requestedUri.queryParameters['per_page'], '20');
-    expect(release?.tagName, 'v1.0.7+1');
+    expect(release?.tagName, 'v1.0.6+14');
   });
 
   test('ignore les brouillons sur le canal beta', () async {
