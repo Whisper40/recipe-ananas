@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_page.dart';
 import 'services/recipe_repository.dart';
@@ -15,14 +16,31 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final repository = RecipeRepository();
   await repository.init();
-  runApp(RecipeBoxApp(repository: repository));
+  final preferences = await SharedPreferences.getInstance();
+  runApp(
+    RecipeBoxApp(
+      repository: repository,
+      preferences: preferences,
+      updateChannel: UpdateChannel.fromStorage(
+        preferences.getString(updateChannelStorageKey),
+      ),
+    ),
+  );
 }
 
 class RecipeBoxApp extends StatefulWidget {
-  const RecipeBoxApp({required this.repository, this.updateChecker, super.key});
+  const RecipeBoxApp({
+    required this.repository,
+    this.updateChecker,
+    this.preferences,
+    this.updateChannel = UpdateChannel.stable,
+    super.key,
+  });
 
   final RecipeRepository repository;
   final UpdateChecker? updateChecker;
+  final SharedPreferences? preferences;
+  final UpdateChannel updateChannel;
 
   @override
   State<RecipeBoxApp> createState() => _RecipeBoxAppState();
@@ -30,16 +48,30 @@ class RecipeBoxApp extends StatefulWidget {
 
 class _RecipeBoxAppState extends State<RecipeBoxApp> {
   late final UpdateChecker _updateChecker;
+  late UpdateChannel _updateChannel;
 
   @override
   void initState() {
     super.initState();
+    _updateChannel = widget.updateChannel;
     _updateChecker =
         widget.updateChecker ??
-        UpdateChecker(owner: _githubOwner, repo: _githubRepo);
+        UpdateChecker(
+          owner: _githubOwner,
+          repo: _githubRepo,
+          channel: _updateChannel,
+        );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdates();
     });
+  }
+
+  Future<void> _setUpdateChannel(UpdateChannel channel) async {
+    setState(() {
+      _updateChannel = channel;
+      _updateChecker.channel = channel;
+    });
+    await widget.preferences?.setString(updateChannelStorageKey, channel.name);
   }
 
   Future<void> _checkForUpdates() async {
@@ -140,6 +172,8 @@ class _RecipeBoxAppState extends State<RecipeBoxApp> {
       ),
       home: HomePage(
         repository: widget.repository,
+        updateChannel: _updateChannel,
+        onUpdateChannelChanged: _setUpdateChannel,
       ),
     );
   }

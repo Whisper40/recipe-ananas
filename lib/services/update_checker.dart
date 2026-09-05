@@ -7,6 +7,23 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+const updateChannelStorageKey = 'recette_box_update_channel_v1';
+
+enum UpdateChannel {
+  stable('Stable'),
+  beta('Beta');
+
+  const UpdateChannel(this.label);
+
+  final String label;
+
+  static UpdateChannel fromStorage(String? value) {
+    return value == UpdateChannel.beta.name
+        ? UpdateChannel.beta
+        : UpdateChannel.stable;
+  }
+}
+
 /// Modèle pour une release GitHub.
 class GitHubRelease {
   GitHubRelease({
@@ -61,6 +78,7 @@ class UpdateChecker {
   final String? token;
   final http.Client? client;
   final Future<PackageInfo?> Function()? packageInfoProvider;
+  UpdateChannel channel;
 
   UpdateChecker({
     required this.owner,
@@ -68,17 +86,18 @@ class UpdateChecker {
     this.token,
     this.client,
     this.packageInfoProvider,
+    this.channel = UpdateChannel.stable,
   });
 
-  Uri get _apiUri => Uri.https(
-    'api.github.com',
-    '/repos/$owner/$repo/releases',
-    <String, String>{
-      'per_page': '100',
-      // GitHub/CDN peut conserver une réponse de la liste des releases.
+  Uri get _apiUri {
+    final path = channel == UpdateChannel.stable
+        ? '/repos/$owner/$repo/releases/latest'
+        : '/repos/$owner/$repo/releases';
+    return Uri.https('api.github.com', path, <String, String>{
+      if (channel == UpdateChannel.beta) 'per_page': '20',
       'cache_bust': DateTime.now().millisecondsSinceEpoch.toString(),
-    },
-  );
+    });
+  }
 
   Future<GitHubRelease?> checkForUpdate() async {
     final requestClient = client ?? http.Client();
@@ -106,17 +125,8 @@ class UpdateChecker {
       if (response.statusCode != 200) return null;
 
       final decoded = jsonDecode(response.body);
-      if (decoded is! List<dynamic>) return null;
-
-      final releases = decoded
-          .whereType<Map<String, dynamic>>()
-          .where((json) => json['draft'] != true && json['prerelease'] != true)
-          .map(GitHubRelease.fromJson)
-          .where((release) => release.downloadUrl.isNotEmpty)
-          .toList();
-
-      final release = _selectHighestVersion(releases);
-      if (release == null) return null;
+      final release = _releaseFromResponse(decoded);
+      if (release == null || release.downloadUrl.isEmpty) return null;
 
       final current = _AppVersion.parse(info.version, logicalBuildNumber(info));
       final available = _AppVersion.parseTag(release.tagName);
@@ -129,20 +139,22 @@ class UpdateChecker {
     }
   }
 
-  GitHubRelease? _selectHighestVersion(List<GitHubRelease> releases) {
-    GitHubRelease? selected;
-    _AppVersion? selectedVersion;
+  GitHubRelease? _releaseFromResponse(dynamic decoded) {
+    if (channel == UpdateChannel.stable) {
+      return decoded is Map<String, dynamic>
+          ? GitHubRelease.fromJson(decoded)
+          : null;
+    }
+    if (decoded is! List) return null;
 
-    for (final release in releases) {
-      final version = _AppVersion.parseTag(release.tagName);
-      if (version == null) continue;
-      if (selectedVersion == null || version.compareTo(selectedVersion) > 0) {
-        selected = release;
-        selectedVersion = version;
+    for (final item in decoded) {
+      if (item is! Map<String, dynamic> || item['draft'] == true) continue;
+      final release = GitHubRelease.fromJson(item);
+      if (release.tagName.isNotEmpty && release.downloadUrl.isNotEmpty) {
+        return release;
       }
     }
-
-    return selected;
+    return null;
   }
 
   Future<void> downloadAndInstall(

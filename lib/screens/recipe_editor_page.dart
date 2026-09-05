@@ -359,8 +359,7 @@ class _RecipeEditorPageState extends State<RecipeEditorPage> {
               RichTextEditingField(
                 controller: _ingredientsController,
                 minHeight: 190,
-                placeholder:
-                    'Un ingrédient par ligne\nEx. 500 g de pommes de terre',
+                placeholder: 'Ex. 500 g de pommes de terre',
               )
             else
               RichTextView(

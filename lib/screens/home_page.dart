@@ -7,14 +7,22 @@ import 'package:flutter/material.dart';
 import '../models/recipe.dart';
 import '../services/recipe_repository.dart';
 import '../services/rich_text_storage.dart';
+import '../services/update_checker.dart';
 import 'recipe_editor_page.dart';
 
 enum _RecipeMenuAction { export, import }
 
 class HomePage extends StatefulWidget {
-  const HomePage({required this.repository, super.key});
+  const HomePage({
+    required this.repository,
+    this.updateChannel = UpdateChannel.stable,
+    this.onUpdateChannelChanged,
+    super.key,
+  });
 
   final RecipeRepository repository;
+  final UpdateChannel updateChannel;
+  final Future<void> Function(UpdateChannel channel)? onUpdateChannelChanged;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -333,6 +341,15 @@ class _HomePageState extends State<HomePage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _selectUpdateChannel(UpdateChannel channel) async {
+    if (channel == widget.updateChannel ||
+        widget.onUpdateChannelChanged == null) {
+      return;
+    }
+    await widget.onUpdateChannelChanged!(channel);
+    if (mounted) _showMessage('Canal de mises à jour : ${channel.label}.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleRecipes = _visibleRecipes;
@@ -391,6 +408,31 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+          PopupMenuButton<UpdateChannel>(
+            tooltip: 'Canal des mises à jour',
+            initialValue: widget.updateChannel,
+            onSelected: _selectUpdateChannel,
+            icon: const Icon(Icons.system_update_alt_rounded),
+            itemBuilder: (context) => UpdateChannel.values
+                .map(
+                  (channel) => PopupMenuItem(
+                    value: channel,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        channel == UpdateChannel.stable
+                            ? Icons.verified_outlined
+                            : Icons.science_outlined,
+                      ),
+                      title: Text(channel.label),
+                      trailing: channel == widget.updateChannel
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
           const SizedBox(width: 8),
         ],
       ),

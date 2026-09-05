@@ -21,16 +21,14 @@ void main() {
       repo: 'recipe-ananas',
       client: MockClient(
         (_) async => http.Response(
-          jsonEncode([
-            {
-              'tag_name': 'v1.0.5+0',
-              'draft': false,
-              'prerelease': false,
-              'assets': [
-                {'browser_download_url': 'https://example.com/app-release.apk'},
-              ],
-            },
-          ]),
+          jsonEncode({
+            'tag_name': 'v1.0.5+0',
+            'draft': false,
+            'prerelease': false,
+            'assets': [
+              {'browser_download_url': 'https://example.com/app-release.apk'},
+            ],
+          }),
           200,
         ),
       ),
